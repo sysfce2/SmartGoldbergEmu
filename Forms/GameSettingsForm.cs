@@ -397,9 +397,9 @@ namespace SmartGoldbergEmu
                         sg_add.Text = streamReader.ReadToEnd();
                     }
                 }
-                if (File.Exists(Path.Combine(game_emu_folder, "steam_settings", "stats.txt")))
+                if (File.Exists(Path.Combine(game_emu_folder, "steam_settings", "stats.json")))
                 {
-                    using (StreamReader streamReader = new StreamReader(new FileStream(Path.Combine(game_emu_folder, "steam_settings", "stats.txt"), FileMode.Open), Encoding.ASCII))
+                    using (StreamReader streamReader = new StreamReader(new FileStream(Path.Combine(game_emu_folder, "steam_settings", "stats.json"), FileMode.Open), Encoding.ASCII))
                     {
                         stat_add.Text = streamReader.ReadToEnd();
                     }
@@ -1117,11 +1117,11 @@ namespace SmartGoldbergEmu
             string game_emu_folder = Path.Combine("games", game_appid_edit.Text);
             if (string.IsNullOrEmpty(stat_add.Text))
             {
-                if (File.Exists(Path.Combine(game_emu_folder, "steam_settings", "stats.txt"))) File.Delete(Path.Combine(game_emu_folder, "steam_settings", "stats.txt"));
+                if (File.Exists(Path.Combine(game_emu_folder, "steam_settings", "stats.json"))) File.Delete(Path.Combine(game_emu_folder, "steam_settings", "stats.json"));
             }
             else
             {
-                TextWriter tw = new StreamWriter(new FileStream(Path.Combine(game_emu_folder, "steam_settings", "stats.txt"), FileMode.Create), Encoding.ASCII);
+                TextWriter tw = new StreamWriter(new FileStream(Path.Combine(game_emu_folder, "steam_settings", "stats.json"), FileMode.Create), Encoding.ASCII);
                 tw.WriteLine(stat_add.Text);
                 tw.Close();
             }
@@ -1300,7 +1300,8 @@ namespace SmartGoldbergEmu
                 {
                     manipulirano = reader.ReadToEnd();
                     stat_add.Text = "";
-                    List<Stats> rjecnik = JsonConvert.DeserializeObject<List<Stats>>(manipulirano);
+                    stat_add.AppendText(manipulirano);
+                    /*List <Stats> rjecnik = JsonConvert.DeserializeObject<List<Stats>>(manipulirano);
                     if (rjecnik.Count > 0)
                     {
                         for (int brojac = 0; brojac < rjecnik.Count; brojac++)
@@ -1308,7 +1309,7 @@ namespace SmartGoldbergEmu
                             Stats name = rjecnik[brojac];
                             stat_add.AppendText(name.Name + "=" + name.Type + "=" + name.Defaultvalue + System.Environment.NewLine);
                         }
-                    }
+                    }*/
                     reader.Dispose();
                 }
                 stream.Dispose();
