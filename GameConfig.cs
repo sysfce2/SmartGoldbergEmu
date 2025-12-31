@@ -130,6 +130,13 @@ namespace SmartGoldbergEmu
         {
             GameConfig copy = new GameConfig
             {
+                // These are missing in your current implementation:
+                Path = this.Path,
+                GameGuid = this.GameGuid,
+                CustomIcon = this.CustomIcon,
+                LocalSave = this.LocalSave,
+
+                // These you already have:
                 StartFolder = StartFolder,
                 AppName = AppName,
                 AppId = AppId,
@@ -146,20 +153,19 @@ namespace SmartGoldbergEmu
                 DisableFriendNotif = DisableFriendNotif,
                 SteamDeck = SteamDeck,
                 AchBypass = AchBypass,
-                UnlockAllDLC= UnlockAllDLC,
+                UnlockAllDLC = UnlockAllDLC,
                 UnknownStats = UnknownStats,
                 SaveHigherStat = SaveHigherStat,
                 GameserverStat = GameserverStat,
                 DisableStatShare = DisableStatShare,
-                DisLobbyCreation=DisLobbyCreation,
-                ShareLeaderboard=ShareLeaderboard,
-                UnknownLeaderboard=UnknownLeaderboard,
+                DisLobbyCreation = DisLobbyCreation,
+                ShareLeaderboard = ShareLeaderboard,
+                UnknownLeaderboard = UnknownLeaderboard,
                 ActualType = ActualType,
                 MatchmakeSource = MatchmakeSource,
                 HttpSuccess = HttpSuccess,
                 CustomBroadcasts = new List<string>(CustomBroadcasts),
-                EnvVars = new List<string>(EnvVars),
-                GameGuid = GameGuid
+                EnvVars = new List<string>(EnvVars)
             };
             return copy;
         }

@@ -15,13 +15,13 @@
    License along with the SmartGoldbergEmu Launcher; if not, see
    <http://www.gnu.org/licenses/>.
  */
+using OSUtility;
 using System;
 using System.Drawing;
 using System.IO;
-using System.Windows.Forms;
-
-using OSUtility;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace SmartGoldbergEmu
 {
@@ -31,21 +31,65 @@ namespace SmartGoldbergEmu
         SavedConf crnilo = new SavedConf();
         private string[] dragndrop_files;
 
+        private void RefreshAppListView()
+        {
+            // Don't clear the image list - preserve existing images
+            app_list_view.Items.Clear();
+
+            var apps = SteamEmulator.Apps;
+            if (_isAlphabeticalSortEnabled)
+                apps = apps.OrderBy(app => app.AppName, StringComparer.CurrentCultureIgnoreCase).ToList();
+
+            foreach (var app in apps)
+            {
+                // Only load image if it doesn't already exist
+                string key = app.GameGuid.ToString();
+                if (!_image_list.Images.ContainsKey(key))
+                {
+                    LoadImage(app);
+                }
+
+                ListViewItem item = new ListViewItem
+                {
+                    Text = app.AppName,
+                    ImageKey = key, // Use GameGuid as key
+                    Tag = app
+                };
+                app_list_view.Items.Add(item);
+            }
+        }
+        private void MigrateExistingEntries()
+        {
+            bool needsMigration = SteamEmulator.Apps.Any(app => app.GameGuid == Guid.Empty);
+
+            if (needsMigration)
+            {
+                SteamEmulator.EnsureAllGamesHaveGuids();
+                MessageBox.Show("Migrated existing entries to use GUIDs.", "Migration Complete",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                RefreshAppListView();
+            }
+        }
+
         public SmartGoldbergEmuMainForm()
         {
             InitializeComponent();
 
             _image_list.ImageSize = new Size(32, 32);
 
-
             app_list_view.LargeImageList = _image_list;
             app_list_view.SmallImageList = _image_list;
 
-            foreach (GameConfig app in SteamEmulator.Apps)
+            /*foreach (GameConfig app in SteamEmulator.Apps)
             {
                 LoadImage(app);
                 AddAppToList(app);
-            }
+            }*/
+
+            _isAlphabeticalSortEnabled = Properties.Settings.Default.SortAlphabetically;
+            sortToggleButton.Checked = _isAlphabeticalSortEnabled;
+            MigrateExistingEntries();
+            RefreshAppListView();
         }
 
         private void AddGameToolStripMenuItem_Click(object sender, EventArgs e)
@@ -75,29 +119,57 @@ namespace SmartGoldbergEmu
 
         private void App_list_view_MouseDoubleClick(object sender, EventArgs e)
         {
-            int index = app_list_view.Items.IndexOf(app_list_view.FocusedItem);
-            GameConfig app = SteamEmulator.Apps[index];
-            SteamEmulator.StartGame(app);
+            if (app_list_view.FocusedItem == null)
+                return;
+            GameConfig app = app_list_view.FocusedItem.Tag as GameConfig;
+            if (app != null)
+                SteamEmulator.StartGame(app);
         }
 
         public void LoadImage(GameConfig app)
         {
             try
             {
-                if (app.CustomIcon == "")
+                string key = app.GameGuid.ToString();
+
+                // Always remove and re-add to ensure fresh image
+                if (_image_list.Images.ContainsKey(key))
                 {
-                    Image result = Icon.ExtractAssociatedIcon(app.Path).ToBitmap();
-                    _image_list.Images.Add(app.Path, result);
+                    _image_list.Images.RemoveByKey(key);
+                }
+
+                if (string.IsNullOrEmpty(app.CustomIcon))
+                {
+                    if (File.Exists(app.Path))
+                    {
+                        Image result = Icon.ExtractAssociatedIcon(app.Path).ToBitmap();
+                        _image_list.Images.Add(key, result);
+                    }
+                    else
+                    {
+                        // Use a default icon if file doesn't exist
+                        _image_list.Images.Add(key, SystemIcons.Application);
+                    }
+                }
+                else if (File.Exists(app.CustomIcon))
+                {
+                    Bitmap bmp = new Bitmap(app.CustomIcon);
+                    _image_list.Images.Add(key, bmp);
                 }
                 else
                 {
-                    Bitmap bmp = new Bitmap(app.CustomIcon);
-                    //Image result = Icon.ExtractAssociatedIcon(app.Path).ToBitmap();
-                    _image_list.Images.Add(app.Path, bmp);
+                    // Fallback to default icon
+                    _image_list.Images.Add(key, SystemIcons.Application);
                 }
-            }    
-            catch (Exception)
+            }
+            catch (Exception ex)
             {
+                // Use default icon on error
+                string key = app.GameGuid.ToString();
+                if (!_image_list.Images.ContainsKey(key))
+                {
+                    _image_list.Images.Add(key, SystemIcons.Application);
+                }
             }
         }
 
@@ -108,7 +180,8 @@ namespace SmartGoldbergEmu
             ListViewItem item = new ListViewItem
             {
                 Text = app.AppName,
-                ImageKey = app.Path
+                ImageKey = app.GameGuid.ToString(),
+                Tag = app
             };
 
             /*if (app_list_view.InvokeRequired)
@@ -136,8 +209,14 @@ namespace SmartGoldbergEmu
         {
             GameConfig app = new GameConfig
             {
-                Path = game_path
+                Path = game_path,
             };
+
+            do
+            {
+                app.GameGuid = Guid.NewGuid();
+            } while (SteamEmulator.Apps.Any(a => a.GameGuid == app.GameGuid));
+
             app.AppName = Path.GetFileNameWithoutExtension(app.Path);
             app.StartFolder = Path.GetDirectoryName(game_path);
 
@@ -149,10 +228,16 @@ namespace SmartGoldbergEmu
                     return;
 
                 app = gsform.Modified_app;
+
+                if (app.GameGuid == Guid.Empty)
+                {
+                    app.GameGuid = Guid.NewGuid();
+                }
+
                 SteamEmulator.AddGame(app);
 
                 LoadImage(app);
-                AddAppToList(app);
+                // Remove this line: AddAppToList(app);
 
                 if (!string.IsNullOrWhiteSpace(SteamEmulator.Config.webapi_key))
                 {
@@ -165,49 +250,103 @@ namespace SmartGoldbergEmu
                     }
                 }
             }
+            RefreshAppListView(); // This will add the item properly
         }
 
         private void EditGame()
         {
-            int index = app_list_view.Items.IndexOf(app_list_view.FocusedItem);
-            if (index == -1)
+            if (app_list_view.FocusedItem == null)
                 return;
-            GameConfig app = SteamEmulator.Apps[index];
+
+            GameConfig app = app_list_view.FocusedItem.Tag as GameConfig;
+            if (app == null)
+                return;
+
+            // Find by GameGuid instead of Path since multiple entries can have same path
+            int index = SteamEmulator.Apps.FindIndex(a => a.GameGuid == app.GameGuid);
+            if (index == -1)
+            {
+                MessageBox.Show("Game not found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
 
             using (GameSettingsForm gsform = new GameSettingsForm())
             {
                 gsform.SetApp(app);
                 DialogResult res = gsform.ShowDialog();
-                gsform.Dispose();
                 if (res != DialogResult.OK)
                     return;
 
-                SteamEmulator.SetGame(index, gsform.Modified_app);
+                var modifiedApp = gsform.Modified_app;
 
-                ListViewItem item = app_list_view.Items[index];
-                item.Text = SteamEmulator.Apps[index].AppName;
-                item.ImageKey = SteamEmulator.Apps[index].Path;
+                // Preserve the GameGuid
+                modifiedApp.GameGuid = app.GameGuid;
+
+                SteamEmulator.SetGame(index, modifiedApp);
+
+                // Update the list view item
+                app_list_view.FocusedItem.Text = modifiedApp.AppName;
+                app_list_view.FocusedItem.ImageKey = modifiedApp.GameGuid.ToString();
+                app_list_view.FocusedItem.Tag = modifiedApp;
+
+                // Reload the image if custom icon changed
+                if (app.CustomIcon != modifiedApp.CustomIcon)
+                {
+                    LoadImage(modifiedApp);
+                }
 
                 if (!string.IsNullOrWhiteSpace(SteamEmulator.Config.webapi_key))
                 {
-                    string game_emu_folder = app.GetGameEmuFolder();
+                    string game_emu_folder = modifiedApp.GetGameEmuFolder();
                     if (!File.Exists(Path.Combine(game_emu_folder, "steam_settings", "achievements.json")))
                     {
                         this.Enabled = false;
-                        SteamEmulator.GenerateGameAchievements(app);
+                        SteamEmulator.GenerateGameAchievements(modifiedApp);
                         this.Enabled = true;
                     }
                 }
             }
         }
 
-        private void DeleteGame()
+        /*private void DeleteGame()
         {
             int index = app_list_view.Items.IndexOf(app_list_view.FocusedItem);
             if (index == -1)
                 return;
             app_list_view.Items.Remove(app_list_view.Items[index]);
             SteamEmulator.RemoveGame(SteamEmulator.Apps[index]);
+            RefreshAppListView();
+        }*/
+        private void DeleteGame()
+        {
+            if (app_list_view.FocusedItem == null)
+                return;
+
+            GameConfig app = app_list_view.FocusedItem.Tag as GameConfig;
+            if (app == null)
+                return;
+
+            // Find by GameGuid instead of index
+            int index = SteamEmulator.Apps.FindIndex(a => a.GameGuid == app.GameGuid);
+            if (index == -1)
+                return;
+
+            if (MessageBox.Show($"Are you sure you want to delete '{app.AppName}'?", "Delete",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                // Remove from SteamEmulator by GameGuid
+                SteamEmulator.RemoveGameByGuid(app.GameGuid);
+
+                // Remove from list view
+                app_list_view.Items.Remove(app_list_view.FocusedItem);
+
+                // Optionally remove the image from image list
+                string key = app.GameGuid.ToString();
+                if (_image_list.Images.ContainsKey(key))
+                {
+                    _image_list.Images.RemoveByKey(key);
+                }
+            }
         }
 
         private void EditSettings()
@@ -377,6 +516,13 @@ namespace SmartGoldbergEmu
                 this.Location = Properties.Settings.Default.F1Location;
                 this.Size = Properties.Settings.Default.F1Size;
             }
+        }
+        private void SortToggleButton_Click(object sender, EventArgs e)
+        {
+            _isAlphabeticalSortEnabled = sortToggleButton.Checked;
+            Properties.Settings.Default.SortAlphabetically = _isAlphabeticalSortEnabled;
+            Properties.Settings.Default.Save();
+            RefreshAppListView();
         }
     }
 }

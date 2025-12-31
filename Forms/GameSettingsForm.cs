@@ -922,30 +922,6 @@ namespace SmartGoldbergEmu
             {
                 tw.WriteLine("enable_account_avatar=1");
             }
-            if (checkBox_DisLobbyCreation.Checked)
-            {
-                tw.WriteLine("disable_leaderboards_create_unknown=00");
-            }
-            else
-            {
-                tw.WriteLine("disable_leaderboards_create_unknown=1");
-            }
-            if (checkBox_UnknownStats.Checked)
-            {
-                tw.WriteLine("allow_unknown_stats=1");
-            }
-            else
-            {
-                tw.WriteLine("allow_unknown_stats=0");
-            }
-            if (checkBox_SaveHigheStats.Checked)
-            {
-                tw.WriteLine("save_only_higher_stat_achievement_progress=1");
-            }
-            else
-            {
-                tw.WriteLine("save_only_higher_stat_achievement_progress=0");
-            }
             if (checkBox_GameServerStat.Checked)
             {
                 tw.WriteLine("immediate_gameserver_stats=1");
@@ -970,6 +946,33 @@ namespace SmartGoldbergEmu
             {
                 tw.WriteLine("matchmaking_server_details_via_source_query=0");
             }
+
+            tw.WriteLine("[main::stats]");
+            if (checkBox_DisLobbyCreation.Checked)
+            {
+                tw.WriteLine("disable_leaderboards_create_unknown=00");
+            }
+            else
+            {
+                tw.WriteLine("disable_leaderboards_create_unknown=1");
+            }
+            if (checkBox_UnknownStats.Checked)
+            {
+                tw.WriteLine("allow_unknown_stats=1");
+            }
+            else
+            {
+                tw.WriteLine("allow_unknown_stats=0");
+            }
+            if (checkBox_SaveHigheStats.Checked)
+            {
+                tw.WriteLine("save_only_higher_stat_achievement_progress=1");
+            }
+            else
+            {
+                tw.WriteLine("save_only_higher_stat_achievement_progress=0");
+            }
+            tw.WriteLine("record_playtime=1");
             tw.WriteLine("[main::connectivity]");
             if (checkBox_DisableLANOnly.Checked)
             {

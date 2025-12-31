@@ -30,6 +30,8 @@ namespace SmartGoldbergEmu
         {
             LoadSave();
 
+            EnsureAllGamesHaveGuids();
+
             string save_folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GSE Saves", "settings");
                 //string save_folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GSE Saves", "settings");
                 if (File.Exists(Path.Combine(save_folder, "configs.user.ini")))
@@ -150,6 +152,14 @@ namespace SmartGoldbergEmu
 
                     Apps = save.apps;
                     Config.webapi_key = save.webapi_key;
+
+                    // Migration for older configs without GUIDs
+                    if (save.ConfigVersion < 2) // Example: version 2 adds GUID support
+                    {
+                        EnsureAllGamesHaveGuids();
+                        save.ConfigVersion = 2;
+                        Save(); // Save with updated version
+                    }
                 }
             }
             catch (Exception)
@@ -197,10 +207,53 @@ namespace SmartGoldbergEmu
             Save();
         }
 
-        public static void SetGame(int index, GameConfig app)
+        public static void SetGame(int index, GameConfig game)
         {
-            Apps[index] = app;
-            Save();
+            // Make sure to preserve the GameGuid
+            if (index >= 0 && index < Apps.Count)
+            {
+                // If the new game doesn't have a GUID, use the old one
+                if (game.GameGuid == Guid.Empty)
+                {
+                    game.GameGuid = Apps[index].GameGuid;
+                }
+                else
+                {
+                    // Preserve the original GUID if it exists
+                    game.GameGuid = Apps[index].GameGuid;
+                }
+                Apps[index] = game;
+                Save();
+            }
+        }
+
+        public static void RemoveGameByGuid(Guid gameGuid)
+        {
+            int index = Apps.FindIndex(a => a.GameGuid == gameGuid);
+            if (index != -1)
+            {
+                Apps.RemoveAt(index);
+                Save();
+            }
+        }
+
+        public static void EnsureAllGamesHaveGuids()
+        {
+            bool hasChanges = false;
+
+            foreach (var app in Apps)
+            {
+                if (app.GameGuid == Guid.Empty)
+                {
+                    app.GameGuid = Guid.NewGuid();
+                    hasChanges = true;
+                }
+            }
+
+            if (hasChanges)
+            {
+                Save();
+            }
         }
 
         public static void RemoveGame(GameConfig app)
