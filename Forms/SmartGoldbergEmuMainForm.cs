@@ -414,11 +414,14 @@ namespace SmartGoldbergEmu
 
         private void OpenGameEmuFolderToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            int index = app_list_view.Items.IndexOf(app_list_view.FocusedItem);
-            if (index == -1)
+            if (app_list_view.FocusedItem == null)
                 return;
 
-            SteamEmulator.ShowGameEmuFolder(SteamEmulator.Apps[index]);
+            GameConfig app = app_list_view.FocusedItem.Tag as GameConfig;
+            if (app == null)
+                return;
+
+            SteamEmulator.ShowGameEmuFolder(app);
         }
 
         private delegate void EnableFormDelegate(bool enable);
